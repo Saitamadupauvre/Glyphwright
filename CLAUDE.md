@@ -61,4 +61,5 @@ Found and fixed for `tests/CMakeLists.txt` (`gw_tests` linking `engine_core`/`en
 - New system: free function + `ENGINE_SYSTEM`, correct phase. No manual registration wiring.
 - New renderer: implement `IRenderer`, `ENGINE_EXPORT_RENDERER`, keep ABI boundary POD-only.
 - Don't design around mid-Play game-code hot-reload or field migration — explicitly rejected, see Decisions Log.
+- Every feature needs unit tests covering its edge cases, added under `tests/<layer>/test_<Type>.cpp` (mirrors source layer/filename) before the feature is considered done. Not just the happy path: empty/missing input, boundary sizes (0, 1, capacity growth), duplicate/repeated calls, invalid entity/handle, ordering/tie-break cases for anything sorted or scheduled.
 
