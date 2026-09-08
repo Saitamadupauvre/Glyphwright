@@ -13,11 +13,14 @@ add_executable(gw_tests)
 target_link_libraries(gw_tests PRIVATE
     $<LINK_LIBRARY:WHOLE_ARCHIVE,engine_core>
     $<LINK_LIBRARY:WHOLE_ARCHIVE,engine_stdlib>
+    engine_render
     GTest::gtest_main
 )
 
 add_subdirectory(engine_core)
+add_subdirectory(engine_render)
 add_subdirectory(engine_stdlib)
+add_subdirectory(renderers)
 
 include(GoogleTest)
 gtest_discover_tests(gw_tests)
