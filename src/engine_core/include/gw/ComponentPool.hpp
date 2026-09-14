@@ -82,6 +82,12 @@ public:
         return elementAt(it->second);
     }
 
+    const void* get(Entity e) const {
+        auto it = _index_of_entity.find(e.id);
+        if (it == _index_of_entity.end()) return nullptr;
+        return elementAt(it->second);
+    }
+
     void* rawData() { return _data; }
     size_t size() const { return _count; }
     const std::vector<Entity>& entities() const { return _entity_of_index; }
@@ -100,6 +106,10 @@ private:
 
     void* elementAt(size_t index) {
         return static_cast<std::byte*>(_data) + index * _element_size;
+    }
+
+    const void* elementAt(size_t index) const {
+        return static_cast<const std::byte*>(_data) + index * _element_size;
     }
 
     static size_t alignUp(size_t n, size_t align) {
