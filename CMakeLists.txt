@@ -1,0 +1,27 @@
+cmake_minimum_required(VERSION 3.24)
+project(Glyphwright CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug)
+endif()
+
+option(GW_BUILD_TESTS "Build Glyphwright unit tests" ON)
+option(GW_BUILD_EDITOR "Build the FTXUI editor" ON)
+
+add_subdirectory(src/engine_core)
+add_subdirectory(src/engine_render)
+add_subdirectory(src/engine_stdlib)
+add_subdirectory(renderers)
+
+if(GW_BUILD_EDITOR)
+    add_subdirectory(src/editor)
+endif()
+
+if(GW_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
