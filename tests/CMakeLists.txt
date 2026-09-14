@@ -22,5 +22,10 @@ add_subdirectory(engine_render)
 add_subdirectory(engine_stdlib)
 add_subdirectory(renderers)
 
+if(GW_BUILD_EDITOR)
+    target_link_libraries(gw_tests PRIVATE gw_editor_models)
+    add_subdirectory(editor)
+endif()
+
 include(GoogleTest)
 gtest_discover_tests(gw_tests)

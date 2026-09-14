@@ -10,11 +10,16 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 option(GW_BUILD_TESTS "Build Glyphwright unit tests" ON)
+option(GW_BUILD_EDITOR "Build the FTXUI editor" ON)
 
 add_subdirectory(src/engine_core)
 add_subdirectory(src/engine_render)
 add_subdirectory(src/engine_stdlib)
 add_subdirectory(renderers)
+
+if(GW_BUILD_EDITOR)
+    add_subdirectory(src/editor)
+endif()
 
 if(GW_BUILD_TESTS)
     enable_testing()
