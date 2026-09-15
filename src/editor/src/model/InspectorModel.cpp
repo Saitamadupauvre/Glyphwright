@@ -39,8 +39,6 @@ std::string formatField(const std::byte* base, const FieldInfo& field) {
             std::memcpy(&v, addr, sizeof(v));
             return std::to_string(v.id);
         }
-        case FieldType::String:
-            return "<string>";
     }
     return "<unknown>";
 }
