@@ -1,5 +1,7 @@
 #include "gw/System.hpp"
 #include <functional>
+#include <stdexcept>
+#include <string>
 
 namespace gw {
 
@@ -32,16 +34,32 @@ std::vector<SystemInfo> SystemRegistry::resolveOrder(Phase phase) const {
         }
     }
 
+    enum class Mark { White, Grey, Black };
+    std::vector<Mark> marks(phaseSystems.size(), Mark::White);
+    std::vector<size_t> stack;
     std::vector<SystemInfo> sorted;
-    std::vector<bool> placed(phaseSystems.size(), false);
 
     std::function<void(size_t)> visit = [&](size_t i) {
-        if (placed[i]) return;
-        placed[i] = true;
+        if (marks[i] == Mark::Black) return;
+        if (marks[i] == Mark::Grey) {
+            std::string msg = "system dependency cycle: ";
+            size_t start = 0;
+            while (stack[start] != i) ++start;
+            for (size_t k = start; k < stack.size(); ++k) {
+                msg += std::string(phaseSystems[stack[k]].name);
+                msg += " -> ";
+            }
+            msg += std::string(phaseSystems[i].name);
+            throw std::runtime_error(msg);
+        }
+        marks[i] = Mark::Grey;
+        stack.push_back(i);
         for (auto dep : phaseSystems[i].after) {
             int idx = findByName(dep);
             if (idx >= 0) visit(static_cast<size_t>(idx));
         }
+        stack.pop_back();
+        marks[i] = Mark::Black;
         sorted.push_back(phaseSystems[i]);
     };
 
