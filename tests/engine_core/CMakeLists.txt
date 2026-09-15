@@ -4,6 +4,7 @@ target_sources(gw_tests PRIVATE
     test_World.cpp
     test_Reflection.cpp
     test_SystemRegistry.cpp
+    test_GameLoop.cpp
     scene/test_SceneBinary.cpp
     scene/test_SceneJson.cpp
 )
