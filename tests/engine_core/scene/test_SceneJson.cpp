@@ -162,6 +162,73 @@ TEST(SceneJson, MalformedJsonReportsErrorWithoutCrashing) {
     EXPECT_TRUE(loaded.allEntities().empty());
 }
 
+TEST(SceneJson, SingletonRoundTripsFieldValues) {
+    gw::World world;
+    world.singleton<Transform>() = Transform{9.0f, -1.5f};
+
+    auto& registry = gw::ReflectionRegistry::instance();
+    auto json = gw::serialize_scene_json(world, registry, testBindings());
+    EXPECT_NE(json.find("\"singletons\""), std::string::npos);
+
+    gw::World loaded;
+    auto result = gw::deserialize_scene_json(loaded, registry, testBindings(), json);
+    ASSERT_TRUE(result.ok);
+
+    ASSERT_TRUE(loaded.hasSingleton<Transform>());
+    Transform& t = loaded.singleton<Transform>();
+    EXPECT_FLOAT_EQ(t.x, 9.0f);
+    EXPECT_FLOAT_EQ(t.y, -1.5f);
+}
+
+TEST(SceneJson, WorldWithoutSingletonsRoundTripsEmptySingletonsObject) {
+    gw::World world;
+    world.createEntity();
+
+    auto& registry = gw::ReflectionRegistry::instance();
+    auto json = gw::serialize_scene_json(world, registry, testBindings());
+
+    gw::World loaded;
+    auto result = gw::deserialize_scene_json(loaded, registry, testBindings(), json);
+    ASSERT_TRUE(result.ok);
+    EXPECT_FALSE(loaded.hasSingleton<Transform>());
+    EXPECT_FALSE(loaded.hasSingleton<Tag>());
+}
+
+TEST(SceneJson, SingletonEntityReferenceSurvivesRemap) {
+    gw::World world;
+    gw::Entity parent = world.createEntity();
+    world.addComponent<Tag>(parent, Tag{1});
+    world.singleton<Hierarchy>() = Hierarchy{parent};
+
+    auto& registry = gw::ReflectionRegistry::instance();
+    auto json = gw::serialize_scene_json(world, registry, testBindings());
+
+    gw::World loaded;
+    auto result = gw::deserialize_scene_json(loaded, registry, testBindings(), json);
+    ASSERT_TRUE(result.ok);
+
+    auto entities = loaded.allEntities();
+    ASSERT_EQ(entities.size(), 1u);
+    Hierarchy& h = loaded.singleton<Hierarchy>();
+    EXPECT_EQ(h.parent, entities[0]);
+}
+
+TEST(SceneJson, UnknownSingletonTypeNameReportsError) {
+    gw::World world;
+    world.singleton<Transform>() = Transform{2.0f, 3.0f};
+
+    auto& registry = gw::ReflectionRegistry::instance();
+    auto json = gw::serialize_scene_json(world, registry, testBindings());
+
+    std::vector<gw::SceneComponentBinding> reducedBindings{GW_SCENE_BINDING(Hierarchy), GW_SCENE_BINDING(Tag)};
+
+    gw::World loaded;
+    auto result = gw::deserialize_scene_json(loaded, registry, reducedBindings, json);
+
+    EXPECT_FALSE(result.ok);
+    ASSERT_FALSE(result.errors.empty());
+}
+
 TEST(SceneJson, MissingEntitiesArrayReportsError) {
     gw::World loaded;
     auto& registry = gw::ReflectionRegistry::instance();

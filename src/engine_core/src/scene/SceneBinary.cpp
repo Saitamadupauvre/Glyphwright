@@ -65,6 +65,28 @@ std::vector<uint8_t> serialize_scene_binary(const World& world, const Reflection
         }
     }
 
+    struct ResolvedSingleton {
+        const SceneComponentBinding* binding;
+        const TypeInfo* info;
+        const void* raw;
+    };
+    std::vector<ResolvedSingleton> singletons;
+    for (const auto& b : bindings) {
+        const void* raw = world.getSingletonRaw(b.type);
+        if (raw == nullptr) continue;
+        const TypeInfo* info = registry.find(b.name);
+        if (info == nullptr) continue;
+        singletons.push_back({&b, info, raw});
+    }
+
+    writeU32(static_cast<uint32_t>(singletons.size()));
+    for (const auto& s : singletons) {
+        writeU16(static_cast<uint16_t>(s.binding->name.size()));
+        writeRaw(s.binding->name.data(), s.binding->name.size());
+        writeU32(static_cast<uint32_t>(s.info->size));
+        writeRaw(s.raw, s.info->size);
+    }
+
     return out;
 }
 
@@ -133,6 +155,33 @@ SceneDeserializeResult deserialize_scene_binary(World& world, const ReflectionRe
         rawEntities.push_back(std::move(re));
     }
 
+    uint32_t singletonCount = 0;
+    if (!readU32(singletonCount)) {
+        fail("malformed scene data: truncated singleton header");
+        return result;
+    }
+    std::vector<RawComponent> rawSingletons;
+    rawSingletons.reserve(singletonCount);
+    for (uint32_t i = 0; i < singletonCount; ++i) {
+        uint16_t nameLen = 0;
+        if (!readU16(nameLen) || !canRead(nameLen)) {
+            fail("malformed scene data: truncated singleton name");
+            return result;
+        }
+        std::string name(reinterpret_cast<const char*>(bytes.data() + pos), nameLen);
+        pos += nameLen;
+
+        uint32_t dataSize = 0;
+        if (!readU32(dataSize) || !canRead(dataSize)) {
+            fail("malformed scene data: truncated singleton data");
+            return result;
+        }
+        std::vector<uint8_t> data(bytes.begin() + pos, bytes.begin() + pos + dataSize);
+        pos += dataSize;
+
+        rawSingletons.push_back({std::move(name), std::move(data)});
+    }
+
     detail::EntityRemap remap;
     std::vector<Entity> newEntities;
     newEntities.reserve(rawEntities.size());
@@ -160,6 +209,23 @@ SceneDeserializeResult deserialize_scene_binary(World& world, const ReflectionRe
             std::memcpy(dst, rc.data.data(), rc.data.size());
             detail::applyEntityRemap(dst, *info, remap);
         }
+    }
+
+    for (const auto& rs : rawSingletons) {
+        const TypeInfo* info = registry.find(rs.name);
+        const SceneComponentBinding* binding = detail::findBinding(bindings, rs.name);
+        if (info == nullptr || binding == nullptr) {
+            fail("unknown singleton type: " + rs.name);
+            continue;
+        }
+        if (rs.data.size() != info->size) {
+            fail("singleton data size mismatch: " + rs.name);
+            continue;
+        }
+
+        void* dst = world.singletonRaw(binding->type, info->size, info->align);
+        std::memcpy(dst, rs.data.data(), rs.data.size());
+        detail::applyEntityRemap(dst, *info, remap);
     }
 
     return result;
