@@ -5,7 +5,7 @@
 
 namespace gw {
 
-enum class FieldType { I32, U32, F32, F64, Bool, Entity, String };
+enum class FieldType { I32, U32, F32, F64, Bool, Entity };
 
 struct FieldInfo {
     std::string_view name;
