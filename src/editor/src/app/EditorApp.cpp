@@ -18,10 +18,11 @@ ftxui::Element decorate(const PanelRow& row) {
 } // namespace
 
 EditorApp::EditorApp(World& world, const ReflectionRegistry& registry,
-                      std::vector<KnownType> knownTypes, std::filesystem::path projectRoot)
+                      std::vector<KnownType> knownTypes, std::filesystem::path projectRoot,
+                      std::vector<KnownType> knownSingletonTypes)
     : _world(world),
       _entityListPanel(world),
-      _propertiesPanel(world, registry, std::move(knownTypes)),
+      _propertiesPanel(world, registry, std::move(knownTypes), std::move(knownSingletonTypes)),
       _folderPanel(std::move(projectRoot)) {}
 
 ftxui::Element EditorApp::renderRows(const std::vector<PanelRow>& rows) const {

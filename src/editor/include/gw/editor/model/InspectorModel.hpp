@@ -25,4 +25,7 @@ std::vector<ComponentView> buildInspector(const World& world, Entity e,
                                            const ReflectionRegistry& registry,
                                            const std::vector<KnownType>& knownTypes);
 
+std::vector<ComponentView> buildWorldInspector(const World& world, const ReflectionRegistry& registry,
+                                                const std::vector<KnownType>& knownSingletonTypes);
+
 } // namespace gw::editor

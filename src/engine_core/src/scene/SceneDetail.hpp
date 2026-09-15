@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <cstring>
+#include <typeindex>
 #include <unordered_map>
 #include "gw/Entity.hpp"
 #include "gw/Reflection.hpp"
@@ -12,6 +13,14 @@ inline const SceneComponentBinding* findBinding(const std::vector<SceneComponent
                                                   std::string_view name) {
     for (const auto& b : bindings) {
         if (b.name == name) return &b;
+    }
+    return nullptr;
+}
+
+inline const SceneComponentBinding* findBindingByType(const std::vector<SceneComponentBinding>& bindings,
+                                                        std::type_index type) {
+    for (const auto& b : bindings) {
+        if (b.type == type) return &b;
     }
     return nullptr;
 }

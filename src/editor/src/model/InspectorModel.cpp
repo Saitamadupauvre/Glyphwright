@@ -67,4 +67,25 @@ std::vector<ComponentView> buildInspector(const World& world, Entity e,
     return result;
 }
 
+std::vector<ComponentView> buildWorldInspector(const World& world, const ReflectionRegistry& registry,
+                                                const std::vector<KnownType>& knownSingletonTypes) {
+    std::vector<ComponentView> result;
+    for (const auto& [type, name] : knownSingletonTypes) {
+        const void* raw = world.getSingletonRaw(type);
+        if (raw == nullptr) continue;
+
+        const TypeInfo* info = registry.find(name);
+        if (info == nullptr) continue;
+
+        ComponentView view;
+        view.typeName = name;
+        const std::byte* base = static_cast<const std::byte*>(raw);
+        for (const FieldInfo& field : info->fields) {
+            view.fields.push_back(FieldView{std::string(field.name), formatField(base, field)});
+        }
+        result.push_back(std::move(view));
+    }
+    return result;
+}
+
 } // namespace gw::editor
