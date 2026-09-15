@@ -62,6 +62,14 @@ public:
         return result;
     }
 
+    void* addComponentRaw(Entity e, std::type_index type, size_t size, size_t align) {
+        auto it = _pools.find(type);
+        if (it == _pools.end()) {
+            it = _pools.emplace(type, ComponentPool(size, align)).first;
+        }
+        return it->second.emplace(e);
+    }
+
     void* getComponentRaw(Entity e, std::type_index type) {
         auto it = _pools.find(type);
         if (it == _pools.end()) return nullptr;

@@ -3,7 +3,11 @@ add_library(engine_core STATIC
     src/Reflection.cpp
     src/SystemRegistry.cpp
     src/World.cpp
+    src/scene/JsonValue.cpp
+    src/scene/SceneBinary.cpp
+    src/scene/SceneJson.cpp
 )
 
 target_include_directories(engine_core PUBLIC include)
+target_include_directories(engine_core PRIVATE src/scene)
 target_compile_features(engine_core PUBLIC cxx_std_20)
