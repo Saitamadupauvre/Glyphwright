@@ -1,5 +1,6 @@
 add_library(engine_core STATIC
     src/native_components.cpp
+    src/GameLoop.cpp
     src/Reflection.cpp
     src/SystemRegistry.cpp
     src/World.cpp

@@ -84,17 +84,6 @@ const QUERY_ITEMS = `
     }
   }`;
 
-const QUERY_PR_ISSUES = `
-  query($owner: String!, $repo: String!, $number: Int!) {
-    repository(owner: $owner, name: $repo) {
-      pullRequest(number: $number) {
-        closingIssuesReferences(first: 50) {
-          nodes { id number state repository { name owner { login } } }
-        }
-      }
-    }
-  }`;
-
 const QUERY_LINKED_BRANCHES = `
   query($owner: String!, $repo: String!, $after: String) {
     repository(owner: $owner, name: $repo) {
@@ -239,11 +228,6 @@ class Repo {
     }
   }
 
-  async issuesClosedByPr(number) {
-    const data = await this._github.graphql(QUERY_PR_ISSUES, { owner: this.owner, repo: this.name, number });
-    return data.repository.pullRequest.closingIssuesReferences.nodes;
-  }
-
   async issuesLinkedToBranch(branch) {
     const found = [];
     let after = null;
@@ -275,10 +259,16 @@ class Repo {
   }
 }
 
+function issueNumbersFromText(text) {
+  const numbers = new Set();
+  for (const match of (text || '').matchAll(CLOSING_KEYWORDS)) numbers.add(Number(match[1]));
+  return numbers;
+}
+
 function issueNumbersFromCommits(commits) {
   const numbers = new Set();
   for (const commit of commits || []) {
-    for (const match of (commit.message || '').matchAll(CLOSING_KEYWORDS)) numbers.add(Number(match[1]));
+    for (const n of issueNumbersFromText(commit.message)) numbers.add(n);
   }
   return [...numbers];
 }
@@ -362,7 +352,12 @@ async function onPush(env, payload) {
 
 async function onPullRequest({ board, repo, cfg, core }, payload) {
   const pr = payload.pull_request;
-  const issues = await repo.issuesClosedByPr(pr.number);
+  const numbers = issueNumbersFromText(`${pr.title}\n${pr.body || ''}`);
+  const issues = [];
+  for (const number of numbers) {
+    const issue = await repo.issue(number);
+    if (issue) issues.push(issue);
+  }
   switch (payload.action) {
     case 'opened':
     case 'reopened':
@@ -456,3 +451,4 @@ module.exports = async ({ github, context, core }) => {
 
 module.exports.STATUS = STATUS;
 module.exports.issueNumbersFromCommits = issueNumbersFromCommits;
+module.exports.issueNumbersFromText = issueNumbersFromText;
