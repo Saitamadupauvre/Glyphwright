@@ -9,6 +9,7 @@ namespace gw::editor {
 struct EntityListEntry {
     Entity entity;
     std::string label;
+    bool isWorld = false;
 };
 
 std::vector<EntityListEntry> buildEntityList(const World& world);
