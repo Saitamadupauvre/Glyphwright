@@ -32,10 +32,11 @@ std::vector<gw::editor::KnownType> buildKnownTypes() {
 
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
     gw::World world = buildDemoWorld();
+    std::filesystem::path rendererLibraryPath = argc > 1 ? std::filesystem::path(argv[1]) : std::filesystem::path{};
     gw::editor::EditorApp app(world, gw::ReflectionRegistry::instance(), buildKnownTypes(),
-                               std::filesystem::current_path());
+                               std::filesystem::current_path(), {}, rendererLibraryPath);
     app.run();
     return 0;
 }

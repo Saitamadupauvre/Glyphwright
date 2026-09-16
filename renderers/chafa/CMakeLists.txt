@@ -2,6 +2,7 @@ include(cmake/VendorChafa.cmake)
 
 add_library(renderer_chafa MODULE
     src/ChafaRenderer.cpp
+    src/ChafaRendererExport.cpp
 )
 
 target_link_libraries(renderer_chafa PRIVATE engine_render chafa_vendored)
