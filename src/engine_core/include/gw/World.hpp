@@ -1,11 +1,14 @@
 #pragma once
+#include <array>
 #include <cstdint>
 #include <cstring>
+#include <tuple>
 #include <typeindex>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include "gw/ComponentPool.hpp"
+#include "gw/ComponentView.hpp"
 #include "gw/Entity.hpp"
 
 namespace gw {
@@ -41,6 +44,23 @@ public:
         auto it = _pools.find(std::type_index(typeid(T)));
         if (it == _pools.end()) return kEmpty;
         return it->second.entities();
+    }
+
+    template <typename... Ts>
+    ComponentView<Ts...> view() {
+        std::array<ComponentPool*, sizeof...(Ts)> pools{};
+        bool ok = true;
+        size_t i = 0;
+        ((tryAssignPool<Ts>(pools[i++], ok)), ...);
+        if (!ok) return ComponentView<Ts...>();
+        return ComponentView<Ts...>(pools);
+    }
+
+    template <typename... Ts, typename Fn>
+    void each(Fn&& fn) {
+        for (auto tuple : view<Ts...>()) {
+            std::apply(fn, tuple);
+        }
     }
 
     std::vector<std::type_index> componentTypesOf(Entity e) const {
@@ -141,6 +161,17 @@ public:
     }
 
 private:
+    template <typename T>
+    void tryAssignPool(ComponentPool*& slot, bool& ok) {
+        auto it = _pools.find(std::type_index(typeid(T)));
+        if (it == _pools.end()) {
+            ok = false;
+            slot = nullptr;
+            return;
+        }
+        slot = &it->second;
+    }
+
     template <typename T>
     ComponentPool& poolFor() {
         auto key = std::type_index(typeid(T));
