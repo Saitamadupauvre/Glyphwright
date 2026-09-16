@@ -22,7 +22,7 @@ add_library(gw_editor_models STATIC
 )
 
 target_include_directories(gw_editor_models PUBLIC include)
-target_link_libraries(gw_editor_models PUBLIC engine_core)
+target_link_libraries(gw_editor_models PUBLIC engine_core engine_render ftxui::dom)
 target_compile_features(gw_editor_models PUBLIC cxx_std_20)
 
 add_library(gw_editor_shell STATIC
