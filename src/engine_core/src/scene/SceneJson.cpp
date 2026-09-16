@@ -164,7 +164,29 @@ std::string serialize_scene_json(const World& world, const ReflectionRegistry& r
         out += "]}";
     }
 
-    out += "]}";
+    out += "],\"singletons\":{";
+    bool firstSingleton = true;
+    for (const auto& b : bindings) {
+        const void* raw = world.getSingletonRaw(b.type);
+        if (raw == nullptr) continue;
+        const TypeInfo* info = registry.find(b.name);
+        if (info == nullptr) continue;
+
+        if (!firstSingleton) out += ',';
+        firstSingleton = false;
+
+        writeEscapedString(out, b.name);
+        out += ":{";
+        const std::byte* base = static_cast<const std::byte*>(raw);
+        for (size_t f = 0; f < info->fields.size(); ++f) {
+            if (f > 0) out += ',';
+            writeEscapedString(out, info->fields[f].name);
+            out += ':';
+            writeFieldValue(out, base, info->fields[f]);
+        }
+        out += "}";
+    }
+    out += "}}";
     return out;
 }
 
@@ -278,6 +300,35 @@ SceneDeserializeResult deserialize_scene_json(World& world, const ReflectionRegi
                 readFieldValue(*rc.fields, base, f);
             }
             applyEntityRemap(dst, *info, remap);
+        }
+    }
+
+    const JsonValue* singletonsVal = findMember(*rootObj, "singletons");
+    if (singletonsVal != nullptr) {
+        const JsonObject* singletonsObj = asObject(*singletonsVal);
+        if (singletonsObj == nullptr) {
+            fail("malformed scene JSON: \"singletons\" is not an object");
+        } else {
+            for (const auto& [typeName, fieldsVal] : *singletonsObj) {
+                const JsonObject* fieldsObj = asObject(fieldsVal);
+                if (fieldsObj == nullptr) {
+                    fail("malformed scene JSON: singleton \"" + typeName + "\" missing \"fields\" object");
+                    continue;
+                }
+                const TypeInfo* info = registry.find(typeName);
+                const SceneComponentBinding* binding = findBinding(bindings, typeName);
+                if (info == nullptr || binding == nullptr) {
+                    fail("unknown singleton type: " + typeName);
+                    continue;
+                }
+
+                void* dst = world.singletonRaw(binding->type, info->size, info->align);
+                std::byte* base = static_cast<std::byte*>(dst);
+                for (const FieldInfo& f : info->fields) {
+                    readFieldValue(*fieldsObj, base, f);
+                }
+                applyEntityRemap(dst, *info, remap);
+            }
         }
     }
 

@@ -62,6 +62,64 @@ public:
         return result;
     }
 
+    template <typename T>
+    T& singleton() {
+        auto key = std::type_index(typeid(T));
+        auto it = _singletonPools.find(key);
+        if (it == _singletonPools.end()) {
+            it = _singletonPools.emplace(key, ComponentPool(sizeof(T), alignof(T))).first;
+        }
+        void* existing = it->second.get(kSingletonSlot);
+        if (existing != nullptr) return *static_cast<T*>(existing);
+        void* slot = it->second.emplace(kSingletonSlot);
+        new (slot) T();
+        return *static_cast<T*>(slot);
+    }
+
+    template <typename T>
+    bool hasSingleton() const {
+        auto it = _singletonPools.find(std::type_index(typeid(T)));
+        return it != _singletonPools.end() && it->second.get(kSingletonSlot) != nullptr;
+    }
+
+    template <typename T>
+    void removeSingleton() {
+        auto it = _singletonPools.find(std::type_index(typeid(T)));
+        if (it != _singletonPools.end()) it->second.remove(kSingletonSlot);
+    }
+
+    void* singletonRaw(std::type_index type, size_t size, size_t align) {
+        auto it = _singletonPools.find(type);
+        if (it == _singletonPools.end()) {
+            it = _singletonPools.emplace(type, ComponentPool(size, align)).first;
+        }
+        void* existing = it->second.get(kSingletonSlot);
+        if (existing != nullptr) return existing;
+        void* slot = it->second.emplace(kSingletonSlot);
+        std::memset(slot, 0, size);
+        return slot;
+    }
+
+    void* getSingletonRaw(std::type_index type) {
+        auto it = _singletonPools.find(type);
+        if (it == _singletonPools.end()) return nullptr;
+        return it->second.get(kSingletonSlot);
+    }
+
+    const void* getSingletonRaw(std::type_index type) const {
+        auto it = _singletonPools.find(type);
+        if (it == _singletonPools.end()) return nullptr;
+        return it->second.get(kSingletonSlot);
+    }
+
+    std::vector<std::type_index> singletonTypes() const {
+        std::vector<std::type_index> types;
+        for (const auto& [type, pool] : _singletonPools) {
+            if (pool.get(kSingletonSlot) != nullptr) types.push_back(type);
+        }
+        return types;
+    }
+
     void* addComponentRaw(Entity e, std::type_index type, size_t size, size_t align) {
         auto it = _pools.find(type);
         if (it == _pools.end()) {
@@ -93,8 +151,11 @@ private:
         return it->second;
     }
 
+    static constexpr Entity kSingletonSlot{0, 0};
+
     uint32_t _nextEntityId = 1;
     std::unordered_map<std::type_index, ComponentPool> _pools;
+    std::unordered_map<std::type_index, ComponentPool> _singletonPools;
 };
 
 } // namespace gw

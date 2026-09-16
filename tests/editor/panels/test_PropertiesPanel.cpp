@@ -41,6 +41,33 @@ TEST(PropertiesPanel, KnownComponentGroupsFieldsAsChildren) {
     EXPECT_EQ(view.rows[0].children[0].text, "x = " + std::to_string(1.0f));
 }
 
+TEST(PropertiesPanel, WorldSelectionWithNoSingletonsYieldsEmptyView) {
+    gw::World world;
+    gw::editor::PropertiesPanel panel(world, gw::ReflectionRegistry::instance(), knownTypes(), knownTypes());
+    EXPECT_TRUE(panel.view(gw::kInvalidEntity).rows.empty());
+}
+
+TEST(PropertiesPanel, WorldSelectionShowsSingletonFields) {
+    gw::World world;
+    world.singleton<gw::Transform>() = gw::Transform{1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
+
+    gw::editor::PropertiesPanel panel(world, gw::ReflectionRegistry::instance(), knownTypes(), knownTypes());
+    auto view = panel.view(gw::kInvalidEntity);
+    ASSERT_EQ(view.rows.size(), 1u);
+    EXPECT_EQ(view.rows[0].text, "gw::Transform");
+    ASSERT_EQ(view.rows[0].children.size(), 5u);
+    EXPECT_EQ(view.rows[0].children[0].text, "x = " + std::to_string(1.0f));
+}
+
+TEST(PropertiesPanel, WorldSelectionDoesNotShowEntityComponents) {
+    gw::World world;
+    gw::Entity e = world.createEntity();
+    world.addComponent<gw::Transform>(e, gw::Transform{1.0f, 2.0f, 3.0f, 4.0f, 5.0f});
+
+    gw::editor::PropertiesPanel panel(world, gw::ReflectionRegistry::instance(), knownTypes(), knownTypes());
+    EXPECT_TRUE(panel.view(gw::kInvalidEntity).rows.empty());
+}
+
 TEST(PropertiesPanel, UnknownTypeNotOnEntityIsSkipped) {
     gw::World world;
     gw::Entity e = world.createEntity();
