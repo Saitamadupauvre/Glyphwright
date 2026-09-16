@@ -14,6 +14,11 @@ struct Tag {
     int value;
 };
 
+struct Velocity {
+    float dx;
+    float dy;
+};
+
 } // namespace
 
 TEST(World, CreateEntityYieldsIncreasingIds) {
@@ -256,6 +261,118 @@ TEST(World, SingletonRawRoundTripsAndMatchesTypedAccess) {
 TEST(World, GetSingletonRawReturnsNullForUnknownType) {
     gw::World world;
     EXPECT_EQ(world.getSingletonRaw(std::type_index(typeid(Position))), nullptr);
+}
+
+TEST(World, ViewOverEmptyWorldYieldsNothing) {
+    gw::World world;
+    int count = 0;
+    for (auto tuple : world.view<Position, Velocity>()) {
+        (void)tuple;
+        ++count;
+    }
+    EXPECT_EQ(count, 0);
+}
+
+TEST(World, ViewWithMissingPoolYieldsEmpty) {
+    gw::World world;
+    gw::Entity a = world.createEntity();
+    world.addComponent<Position>(a, Position{1.0f, 1.0f});
+    // Velocity pool never created for any entity.
+
+    int count = 0;
+    for (auto tuple : world.view<Position, Velocity>()) {
+        (void)tuple;
+        ++count;
+    }
+    EXPECT_EQ(count, 0);
+}
+
+TEST(World, ViewFullOverlapYieldsAllEntities) {
+    gw::World world;
+    gw::Entity a = world.createEntity();
+    gw::Entity b = world.createEntity();
+    world.addComponent<Position>(a, Position{1.0f, 1.0f});
+    world.addComponent<Velocity>(a, Velocity{0.1f, 0.1f});
+    world.addComponent<Position>(b, Position{2.0f, 2.0f});
+    world.addComponent<Velocity>(b, Velocity{0.2f, 0.2f});
+
+    std::vector<gw::Entity> seen;
+    for (auto [e, pos, vel] : world.view<Position, Velocity>()) {
+        seen.push_back(e);
+        pos.x += vel.dx;
+    }
+
+    EXPECT_EQ(seen.size(), 2u);
+    EXPECT_NE(std::find(seen.begin(), seen.end(), a), seen.end());
+    EXPECT_NE(std::find(seen.begin(), seen.end(), b), seen.end());
+    EXPECT_FLOAT_EQ(world.getComponent<Position>(a)->x, 1.1f);
+}
+
+TEST(World, ViewPartialOverlapYieldsOnlyIntersection) {
+    gw::World world;
+    gw::Entity both = world.createEntity();
+    gw::Entity onlyPosition = world.createEntity();
+    gw::Entity onlyVelocity = world.createEntity();
+    world.addComponent<Position>(both, Position{1.0f, 1.0f});
+    world.addComponent<Velocity>(both, Velocity{0.1f, 0.1f});
+    world.addComponent<Position>(onlyPosition, Position{2.0f, 2.0f});
+    world.addComponent<Velocity>(onlyVelocity, Velocity{0.2f, 0.2f});
+
+    std::vector<gw::Entity> seen;
+    for (auto [e, pos, vel] : world.view<Position, Velocity>()) {
+        (void)pos;
+        (void)vel;
+        seen.push_back(e);
+    }
+
+    EXPECT_EQ(seen.size(), 1u);
+    EXPECT_EQ(seen[0], both);
+}
+
+TEST(World, EachCallbackFormMatchesView) {
+    gw::World world;
+    gw::Entity a = world.createEntity();
+    world.addComponent<Position>(a, Position{1.0f, 1.0f});
+    world.addComponent<Velocity>(a, Velocity{5.0f, 5.0f});
+
+    int calls = 0;
+    world.each<Position, Velocity>([&](gw::Entity e, Position& pos, Velocity& vel) {
+        EXPECT_EQ(e, a);
+        pos.x += vel.dx;
+        ++calls;
+    });
+
+    EXPECT_EQ(calls, 1);
+    EXPECT_FLOAT_EQ(world.getComponent<Position>(a)->x, 6.0f);
+}
+
+TEST(World, ViewRemovingUpcomingEntityMidIterationExcludesIt) {
+    // Driver is the Position pool (tie-broken to the first template argument).
+    // Removing a not-yet-visited entity's component in a non-driver pool
+    // must exclude it from the remaining iteration.
+    gw::World world;
+    gw::Entity a = world.createEntity();
+    gw::Entity b = world.createEntity();
+    gw::Entity c = world.createEntity();
+    world.addComponent<Position>(a, Position{1.0f, 1.0f});
+    world.addComponent<Position>(b, Position{2.0f, 2.0f});
+    world.addComponent<Position>(c, Position{3.0f, 3.0f});
+    world.addComponent<Velocity>(a, Velocity{0.0f, 0.0f});
+    world.addComponent<Velocity>(b, Velocity{0.0f, 0.0f});
+    world.addComponent<Velocity>(c, Velocity{0.0f, 0.0f});
+
+    std::vector<gw::Entity> seen;
+    for (auto [e, pos, vel] : world.view<Position, Velocity>()) {
+        (void)pos;
+        (void)vel;
+        seen.push_back(e);
+        if (e == a) world.removeComponent<Velocity>(b);
+    }
+
+    EXPECT_EQ(seen.size(), 2u);
+    EXPECT_NE(std::find(seen.begin(), seen.end(), a), seen.end());
+    EXPECT_NE(std::find(seen.begin(), seen.end(), c), seen.end());
+    EXPECT_EQ(std::find(seen.begin(), seen.end(), b), seen.end());
 }
 
 TEST(World, GetComponentRawRoundTripsWithAddComponent) {
