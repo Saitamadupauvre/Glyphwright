@@ -17,7 +17,8 @@ namespace gw::editor {
 class EditorApp {
 public:
     EditorApp(World& world, const ReflectionRegistry& registry,
-              std::vector<KnownType> knownTypes, std::filesystem::path projectRoot);
+              std::vector<KnownType> knownTypes, std::filesystem::path projectRoot,
+              std::vector<KnownType> knownSingletonTypes = {});
 
     void run();
 

@@ -24,28 +24,23 @@ template <> struct FieldTypeOf<::gw::Entity> { static constexpr FieldType value 
         sizeof(decltype(Type::field)) \
     }
 
-#define GW_EXPAND(x) x
-#define GW_ARGCOUNT(...) GW_EXPAND(GW_ARGCOUNT_(__VA_ARGS__, 12,11,10,9,8,7,6,5,4,3,2,1))
-#define GW_ARGCOUNT_(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,N,...) N
+// Recursive __VA_OPT__ expansion (C++20), depth 4^4=256 fields — no hardcoded field-count ceiling.
+#define GW_PARENS ()
 
-#define GW_FIELDS_1(T,a) GW_FIELD(T,a)
-#define GW_FIELDS_2(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_1(T,__VA_ARGS__))
-#define GW_FIELDS_3(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_2(T,__VA_ARGS__))
-#define GW_FIELDS_4(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_3(T,__VA_ARGS__))
-#define GW_FIELDS_5(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_4(T,__VA_ARGS__))
-#define GW_FIELDS_6(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_5(T,__VA_ARGS__))
-#define GW_FIELDS_7(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_6(T,__VA_ARGS__))
-#define GW_FIELDS_8(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_7(T,__VA_ARGS__))
-#define GW_FIELDS_9(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_8(T,__VA_ARGS__))
-#define GW_FIELDS_10(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_9(T,__VA_ARGS__))
-#define GW_FIELDS_11(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_10(T,__VA_ARGS__))
-#define GW_FIELDS_12(T,a,...) GW_FIELD(T,a), GW_EXPAND(GW_FIELDS_11(T,__VA_ARGS__))
+#define GW_EXPAND(...) GW_EXPAND4(GW_EXPAND4(GW_EXPAND4(GW_EXPAND4(__VA_ARGS__))))
+#define GW_EXPAND4(...) GW_EXPAND3(GW_EXPAND3(GW_EXPAND3(GW_EXPAND3(__VA_ARGS__))))
+#define GW_EXPAND3(...) GW_EXPAND2(GW_EXPAND2(GW_EXPAND2(GW_EXPAND2(__VA_ARGS__))))
+#define GW_EXPAND2(...) GW_EXPAND1(GW_EXPAND1(GW_EXPAND1(GW_EXPAND1(__VA_ARGS__))))
+#define GW_EXPAND1(...) __VA_ARGS__
 
 #define GW_CAT(a, b) GW_CAT_(a, b)
 #define GW_CAT_(a, b) a##b
 
-#define GW_FIELDS_(N, T, ...) GW_EXPAND(GW_CAT(GW_FIELDS_, N)(T, __VA_ARGS__))
-#define GW_FIELDS(T, ...) GW_FIELDS_(GW_ARGCOUNT(__VA_ARGS__), T, __VA_ARGS__)
+#define GW_FIELDS_HELPER(T, a, ...) \
+    GW_FIELD(T, a) __VA_OPT__(, GW_FIELDS_AGAIN GW_PARENS (T, __VA_ARGS__))
+#define GW_FIELDS_AGAIN() GW_FIELDS_HELPER
+
+#define GW_FIELDS(T, ...) __VA_OPT__(GW_EXPAND(GW_FIELDS_HELPER(T, __VA_ARGS__)))
 
 #define ENGINE_REFLECT(Type, ...) \
     namespace { \
