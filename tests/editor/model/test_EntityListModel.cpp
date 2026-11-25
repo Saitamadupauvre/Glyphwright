@@ -17,9 +17,19 @@ TEST(EntityListModel, EmptyWorldYieldsOnlyWorldRow) {
     EXPECT_EQ(list[0].entity, gw::kInvalidEntity);
 }
 
-TEST(EntityListModel, ComponentlessEntityIsNotListedButWorldRowIs) {
+TEST(EntityListModel, ComponentlessEntityIsListedAfterWorldRow) {
     gw::World world;
-    world.createEntity();
+    gw::Entity e = world.createEntity();
+    auto list = gw::editor::buildEntityList(world);
+    ASSERT_EQ(list.size(), 2u);
+    EXPECT_TRUE(list[0].isWorld);
+    EXPECT_EQ(list[1].entity, e);
+}
+
+TEST(EntityListModel, DestroyedEntityDisappearsFromList) {
+    gw::World world;
+    gw::Entity e = world.createEntity();
+    world.destroyEntity(e);
     auto list = gw::editor::buildEntityList(world);
     ASSERT_EQ(list.size(), 1u);
     EXPECT_TRUE(list[0].isWorld);

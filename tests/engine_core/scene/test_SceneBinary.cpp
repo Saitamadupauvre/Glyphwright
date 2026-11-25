@@ -16,7 +16,7 @@ TEST(SceneBinary, EmptyWorldRoundTrips) {
     EXPECT_TRUE(loaded.allEntities().empty());
 }
 
-TEST(SceneBinary, EntityWithZeroComponentsIsSkippedWithoutAffectingOthers) {
+TEST(SceneBinary, EntityWithZeroComponentsIsPreservedAlongsideOthers) {
     gw::World world;
     world.createEntity();
     gw::Entity withComponent = world.createEntity();
@@ -28,7 +28,7 @@ TEST(SceneBinary, EntityWithZeroComponentsIsSkippedWithoutAffectingOthers) {
     ASSERT_GE(bytes.size(), 12u);
     uint32_t entityCount = 0;
     std::memcpy(&entityCount, bytes.data() + 8, sizeof(entityCount));
-    EXPECT_EQ(entityCount, 1u);
+    EXPECT_EQ(entityCount, 2u);
 
     gw::World loaded;
     auto result = gw::deserialize_scene_binary(loaded, registry, testBindings(), bytes);
@@ -36,8 +36,9 @@ TEST(SceneBinary, EntityWithZeroComponentsIsSkippedWithoutAffectingOthers) {
     EXPECT_TRUE(result.errors.empty());
 
     auto entities = loaded.allEntities();
-    ASSERT_EQ(entities.size(), 1u);
-    Tag* tag = loaded.getComponent<Tag>(entities[0]);
+    ASSERT_EQ(entities.size(), 2u);
+    EXPECT_EQ(loaded.getComponent<Tag>(entities[0]), nullptr);
+    Tag* tag = loaded.getComponent<Tag>(entities[1]);
     ASSERT_NE(tag, nullptr);
     EXPECT_EQ(tag->value, 5);
 }
@@ -85,10 +86,14 @@ TEST(SceneBinary, RoundTripReproducesFieldValues) {
 
 TEST(SceneBinary, EntityReferenceSurvivesRemap) {
     gw::World world;
+    gw::Entity gapA = world.createEntity();
+    gw::Entity gapB = world.createEntity();
     gw::Entity parent = world.createEntity();
     world.addComponent<Tag>(parent, Tag{1});
     gw::Entity child = world.createEntity();
     world.addComponent<Hierarchy>(child, Hierarchy{parent});
+    world.destroyEntity(gapA);
+    world.destroyEntity(gapB);
 
     auto& registry = gw::ReflectionRegistry::instance();
     auto bytes = gw::serialize_scene_binary(world, registry, testBindings());

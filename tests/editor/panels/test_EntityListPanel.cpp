@@ -17,11 +17,11 @@ TEST(EntityListPanel, EmptyWorldYieldsOnlyWorldRow) {
     EXPECT_EQ(panel.entityAt(0), gw::kInvalidEntity);
 }
 
-TEST(EntityListPanel, ComponentlessEntityIsNotListedButWorldRowIs) {
+TEST(EntityListPanel, ComponentlessEntityIsListedAfterWorldRow) {
     gw::World world;
     world.createEntity();
     gw::editor::EntityListPanel panel(world);
-    ASSERT_EQ(panel.view().rows.size(), 1u);
+    ASSERT_EQ(panel.view().rows.size(), 2u);
     EXPECT_EQ(panel.view().rows[0].text, "World");
 }
 

@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <unordered_map>
+#ifdef _WIN32
+#include <malloc.h>
+#endif
 #include <vector>
 #include "gw/Entity.hpp"
 
@@ -16,7 +18,7 @@ public:
 
     ~ComponentPool() {
         if (_data) {
-            std::free(_data);
+            alignedFree(_data);
         }
     }
 
@@ -30,7 +32,7 @@ public:
           _count(other._count),
           _capacity(other._capacity),
           _entity_of_index(std::move(other._entity_of_index)),
-          _index_of_entity(std::move(other._index_of_entity)) {
+          _sparse(std::move(other._sparse)) {
         other._data = nullptr;
         other._count = 0;
         other._capacity = 0;
@@ -38,14 +40,14 @@ public:
 
     ComponentPool& operator=(ComponentPool&& other) noexcept {
         if (this == &other) return *this;
-        if (_data) std::free(_data);
+        if (_data) alignedFree(_data);
         _element_size = other._element_size;
         _element_align = other._element_align;
         _data = other._data;
         _count = other._count;
         _capacity = other._capacity;
         _entity_of_index = std::move(other._entity_of_index);
-        _index_of_entity = std::move(other._index_of_entity);
+        _sparse = std::move(other._sparse);
         other._data = nullptr;
         other._count = 0;
         other._capacity = 0;
@@ -53,39 +55,44 @@ public:
     }
 
     void* emplace(Entity e) {
+        size_t existing = indexOf(e.id);
+        if (existing != kAbsent) {
+            _entity_of_index[existing] = e;
+            return elementAt(existing);
+        }
         if (_count == _capacity) grow();
         size_t index = _count++;
         _entity_of_index.push_back(e);
-        _index_of_entity[e.id] = index;
+        if (e.id >= _sparse.size()) _sparse.resize(static_cast<size_t>(e.id) + 1, kAbsentIndex);
+        _sparse[e.id] = static_cast<uint32_t>(index);
         return elementAt(index);
     }
 
     void remove(Entity e) {
-        auto it = _index_of_entity.find(e.id);
-        if (it == _index_of_entity.end()) return;
-        size_t index = it->second;
+        size_t index = indexOfExact(e);
+        if (index == kAbsent) return;
         size_t last = _count - 1;
         if (index != last) {
             std::memcpy(elementAt(index), elementAt(last), _element_size);
             Entity moved = _entity_of_index[last];
             _entity_of_index[index] = moved;
-            _index_of_entity[moved.id] = index;
+            _sparse[moved.id] = static_cast<uint32_t>(index);
         }
         _entity_of_index.pop_back();
-        _index_of_entity.erase(it);
+        _sparse[e.id] = kAbsentIndex;
         --_count;
     }
 
     void* get(Entity e) {
-        auto it = _index_of_entity.find(e.id);
-        if (it == _index_of_entity.end()) return nullptr;
-        return elementAt(it->second);
+        size_t index = indexOfExact(e);
+        if (index == kAbsent) return nullptr;
+        return elementAt(index);
     }
 
     const void* get(Entity e) const {
-        auto it = _index_of_entity.find(e.id);
-        if (it == _index_of_entity.end()) return nullptr;
-        return elementAt(it->second);
+        size_t index = indexOfExact(e);
+        if (index == kAbsent) return nullptr;
+        return elementAt(index);
     }
 
     void* rawData() { return _data; }
@@ -93,12 +100,27 @@ public:
     const std::vector<Entity>& entities() const { return _entity_of_index; }
 
 private:
+    static constexpr size_t kAbsent = static_cast<size_t>(-1);
+    static constexpr uint32_t kAbsentIndex = 0xFFFFFFFFu;
+
+    size_t indexOf(uint32_t id) const {
+        if (id >= _sparse.size()) return kAbsent;
+        uint32_t index = _sparse[id];
+        return index == kAbsentIndex ? kAbsent : index;
+    }
+
+    size_t indexOfExact(Entity e) const {
+        size_t index = indexOf(e.id);
+        if (index == kAbsent || _entity_of_index[index] != e) return kAbsent;
+        return index;
+    }
+
     void grow() {
         size_t new_capacity = _capacity == 0 ? 16 : _capacity * 2;
-        void* new_data = std::aligned_alloc(_element_align, alignUp(new_capacity * _element_size, _element_align));
+        void* new_data = alignedAlloc(_element_align, alignUp(new_capacity * _element_size, _element_align));
         if (_data) {
             std::memcpy(new_data, _data, _count * _element_size);
-            std::free(_data);
+            alignedFree(_data);
         }
         _data = new_data;
         _capacity = new_capacity;
@@ -112,6 +134,22 @@ private:
         return static_cast<const std::byte*>(_data) + index * _element_size;
     }
 
+    static void* alignedAlloc(size_t align, size_t size) {
+#ifdef _WIN32
+        return _aligned_malloc(size, align);
+#else
+        return std::aligned_alloc(align, size);
+#endif
+    }
+
+    static void alignedFree(void* ptr) {
+#ifdef _WIN32
+        _aligned_free(ptr);
+#else
+        std::free(ptr);
+#endif
+    }
+
     static size_t alignUp(size_t n, size_t align) {
         return (n + align - 1) / align * align;
     }
@@ -123,7 +161,7 @@ private:
     size_t _capacity = 0;
 
     std::vector<Entity> _entity_of_index;
-    std::unordered_map<uint32_t, size_t> _index_of_entity;
+    std::vector<uint32_t> _sparse;
 };
 
 } // namespace gw

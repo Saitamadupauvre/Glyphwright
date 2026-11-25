@@ -15,7 +15,7 @@ TEST(SceneJson, EmptyWorldRoundTrips) {
     EXPECT_TRUE(loaded.allEntities().empty());
 }
 
-TEST(SceneJson, EntityWithZeroComponentsIsSkippedWithoutAffectingOthers) {
+TEST(SceneJson, EntityWithZeroComponentsIsPreservedAlongsideOthers) {
     gw::World world;
     world.createEntity();
     gw::Entity withComponent = world.createEntity();
@@ -31,8 +31,9 @@ TEST(SceneJson, EntityWithZeroComponentsIsSkippedWithoutAffectingOthers) {
     EXPECT_TRUE(result.errors.empty());
 
     auto entities = loaded.allEntities();
-    ASSERT_EQ(entities.size(), 1u);
-    Tag* tag = loaded.getComponent<Tag>(entities[0]);
+    ASSERT_EQ(entities.size(), 2u);
+    EXPECT_EQ(loaded.getComponent<Tag>(entities[0]), nullptr);
+    Tag* tag = loaded.getComponent<Tag>(entities[1]);
     ASSERT_NE(tag, nullptr);
     EXPECT_EQ(tag->value, 5);
 }
@@ -80,10 +81,14 @@ TEST(SceneJson, RoundTripReproducesFieldValues) {
 
 TEST(SceneJson, EntityReferenceSurvivesRemap) {
     gw::World world;
+    gw::Entity gapA = world.createEntity();
+    gw::Entity gapB = world.createEntity();
     gw::Entity parent = world.createEntity();
     world.addComponent<Tag>(parent, Tag{1});
     gw::Entity child = world.createEntity();
     world.addComponent<Hierarchy>(child, Hierarchy{parent});
+    world.destroyEntity(gapA);
+    world.destroyEntity(gapB);
 
     auto& registry = gw::ReflectionRegistry::instance();
     auto json = gw::serialize_scene_json(world, registry, testBindings());

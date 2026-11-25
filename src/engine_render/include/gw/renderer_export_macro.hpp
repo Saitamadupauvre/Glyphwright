@@ -3,6 +3,12 @@
 #include "gw/IRenderer.hpp"
 #include "gw/RendererVTable.hpp"
 
+#ifdef _WIN32
+#define GW_RENDERER_API __declspec(dllexport)
+#else
+#define GW_RENDERER_API __attribute__((visibility("default")))
+#endif
+
 #define GW_RENDERER_CAT(a, b) GW_RENDERER_CAT_(a, b)
 #define GW_RENDERER_CAT_(a, b) a##b
 
@@ -35,7 +41,7 @@
         return static_cast<Type*>(self)->deserializeState(data, size); \
     } \
     } \
-    extern "C" const ::gw::RendererVTable* get_renderer_vtable() { \
+    extern "C" GW_RENDERER_API const ::gw::RendererVTable* get_renderer_vtable() { \
         static const Type gw_renderer_probe_##Type{}; \
         static const bool gw_renderer_supports_state_##Type = gw_renderer_probe_##Type.supportsStateTransfer(); \
         static const ::gw::RendererVTable table{ \

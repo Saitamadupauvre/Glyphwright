@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.27)
 project(Glyphwright CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -7,6 +7,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
+endif()
+
+if(MSVC)
+    add_compile_options(/Zc:preprocessor /utf-8)
 endif()
 
 option(GW_BUILD_TESTS "Build Glyphwright unit tests" ON)

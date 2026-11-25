@@ -1,4 +1,5 @@
 #include "gw/RendererVTable.hpp"
+#include "gw/renderer_export_macro.hpp"
 
 namespace {
 
@@ -12,7 +13,7 @@ void endFrame(void*) {}
 
 } // namespace
 
-extern "C" const gw::RendererVTable* get_renderer_vtable() {
+extern "C" GW_RENDERER_API const gw::RendererVTable* get_renderer_vtable() {
     static const gw::RendererVTable table{
         gw::kRendererAbiVersion,
         &create,
