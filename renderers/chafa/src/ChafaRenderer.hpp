@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <string>
 #include <vector>
 #include "gw/IRenderer.hpp"
 
@@ -12,6 +13,8 @@ public:
     void drawBatch(const gw::DrawCommand* commands, size_t count) override;
     void endFrame() override;
 
+    const char* frameText() const override;
+
     bool supportsStateTransfer() const override { return true; }
     std::vector<uint8_t> serializeState() override;
     bool deserializeState(const uint8_t* data, size_t size) override;
@@ -21,4 +24,5 @@ private:
 
     gw::RendererRect _rect{};
     std::vector<uint8_t> _framebuffer;
+    std::string _frameText;
 };

@@ -145,4 +145,9 @@ void RendererLoader::endFrame() {
     }
 }
 
+const char* RendererLoader::frameText() const {
+    if (!isLoaded()) return nullptr;
+    return _current.vtable->getFrameText(_current.instance);
+}
+
 } // namespace gw

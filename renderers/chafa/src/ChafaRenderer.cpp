@@ -1,38 +1,12 @@
 #include "ChafaRenderer.hpp"
-#include "gw/renderer_export_macro.hpp"
 #include <algorithm>
 #include <chafa.h>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <sys/ioctl.h>
-#include <unistd.h>
 
 extern char **environ;
 
 namespace {
-
-struct TerminalGeometry {
-  gint cols = 0;
-  gint rows = 0;
-  gint cellWidthPx = 0;
-  gint cellHeightPx = 0;
-};
-
-bool queryTerminalGeometry(TerminalGeometry &out) {
-  struct winsize ws{};
-  if (::ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != 0)
-    return false;
-  if (ws.ws_col == 0 || ws.ws_row == 0)
-    return false;
-  out.cols = static_cast<gint>(ws.ws_col);
-  out.rows = static_cast<gint>(ws.ws_row);
-  if (ws.ws_xpixel > 0 && ws.ws_ypixel > 0) {
-    out.cellWidthPx = static_cast<gint>(ws.ws_xpixel) / out.cols;
-    out.cellHeightPx = static_cast<gint>(ws.ws_ypixel) / out.rows;
-  }
-  return true;
-}
 
 void clearFramebuffer(std::vector<uint8_t> &framebuffer) {
   std::fill(framebuffer.begin(), framebuffer.end(), uint8_t{0});
@@ -90,40 +64,30 @@ void ChafaRenderer::drawBatch(const gw::DrawCommand *commands, size_t count) {
 }
 
 void ChafaRenderer::endFrame() {
+  _frameText.clear();
   if (_rect.width == 0 || _rect.height == 0)
     return;
 
   ChafaTermInfo *termInfo =
       chafa_term_db_detect(chafa_term_db_get_default(), environ);
-  chafa_term_info_get_best_canvas_mode(termInfo);
+  const ChafaCanvasMode canvasMode =
+      chafa_term_info_get_best_canvas_mode(termInfo);
   const bool inMultiplexer =
       std::getenv("TMUX") != nullptr || std::getenv("STY") != nullptr;
   const ChafaPixelMode pixelMode =
       inMultiplexer ? CHAFA_PIXEL_MODE_SYMBOLS
                     : chafa_term_info_get_best_pixel_mode(termInfo);
 
-  TerminalGeometry term;
-  const bool haveTerm = queryTerminalGeometry(term);
-
-  gint destWidth = haveTerm ? term.cols : static_cast<gint>(_rect.width);
-  gint destHeight = haveTerm ? term.rows : static_cast<gint>(_rect.height);
-  const gfloat fontRatio =
-      (haveTerm && term.cellWidthPx > 0 && term.cellHeightPx > 0)
-          ? static_cast<gfloat>(term.cellWidthPx) /
-                static_cast<gfloat>(term.cellHeightPx)
-          : 0.5f;
+  gint destWidth = static_cast<gint>(_rect.width);
+  gint destHeight = static_cast<gint>(_rect.height);
   chafa_calc_canvas_geometry(static_cast<gint>(_rect.width),
                              static_cast<gint>(_rect.height), &destWidth,
-                             &destHeight, fontRatio, FALSE, FALSE);
+                             &destHeight, 0.5f, FALSE, FALSE);
 
   ChafaCanvasConfig *config = chafa_canvas_config_new();
   chafa_canvas_config_set_canvas_mode(config, canvasMode);
   chafa_canvas_config_set_pixel_mode(config, pixelMode);
   chafa_canvas_config_set_geometry(config, destWidth, destHeight);
-  if (haveTerm && term.cellWidthPx > 0 && term.cellHeightPx > 0) {
-    chafa_canvas_config_set_cell_geometry(config, term.cellWidthPx,
-                                          term.cellHeightPx);
-  }
 
   ChafaCanvas *canvas = chafa_canvas_new(config);
   chafa_canvas_draw_all_pixels(
@@ -132,13 +96,16 @@ void ChafaRenderer::endFrame() {
       static_cast<gint>(_rect.width) * 4);
 
   GString *output = chafa_canvas_print(canvas, termInfo);
-  std::fwrite(output->str, 1, output->len, stdout);
-  std::fflush(stdout);
-
+  _frameText.assign(output->str, output->len);
   g_string_free(output, TRUE);
+
   chafa_term_info_unref(termInfo);
   chafa_canvas_unref(canvas);
   chafa_canvas_config_unref(config);
+}
+
+const char *ChafaRenderer::frameText() const {
+  return _frameText.empty() ? nullptr : _frameText.c_str();
 }
 
 std::vector<uint8_t> ChafaRenderer::serializeState() {
@@ -155,5 +122,3 @@ bool ChafaRenderer::deserializeState(const uint8_t *data, size_t size) {
   resizeFramebuffer(rect);
   return true;
 }
-
-ENGINE_EXPORT_RENDERER(ChafaRenderer)

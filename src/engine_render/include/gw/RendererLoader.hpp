@@ -36,6 +36,7 @@ public:
     void beginFrame();
     void drawBatch(const DrawCommand* commands, size_t count);
     void endFrame();
+    const char* frameText() const;
 
 private:
     struct LoadedLibrary {

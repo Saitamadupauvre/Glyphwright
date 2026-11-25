@@ -16,6 +16,8 @@ public:
     virtual void drawBatch(const DrawCommand* commands, size_t count) = 0;
     virtual void endFrame() = 0;
 
+    virtual const char* frameText() const { return nullptr; }
+
     virtual bool supportsStateTransfer() const { return false; }
     virtual std::vector<uint8_t> serializeState() { return {}; }
     virtual bool deserializeState(const uint8_t* data, size_t size) { return false; }

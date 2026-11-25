@@ -29,6 +29,7 @@ using RendererSetRectFn     = void  (*)(void* self, RendererRect rect);
 using RendererBeginFrameFn  = void  (*)(void* self);
 using RendererDrawBatchFn   = void  (*)(void* self, const DrawCommand* commands, size_t count);
 using RendererEndFrameFn    = void  (*)(void* self);
+using RendererGetFrameTextFn = const char* (*)(void* self);
 using RendererSerializeFn   = StateBuffer (*)(void* self);
 using RendererFreeStateFn   = void  (*)(StateBuffer buf);
 using RendererDeserializeFn = bool  (*)(void* self, const uint8_t* data, size_t size);
@@ -43,6 +44,7 @@ struct RendererVTable {
     RendererBeginFrameFn  beginFrame;
     RendererDrawBatchFn   drawBatch;
     RendererEndFrameFn    endFrame;
+    RendererGetFrameTextFn getFrameText;
     RendererSerializeFn   serializeState;
     RendererFreeStateFn   freeState;
     RendererDeserializeFn deserializeState;

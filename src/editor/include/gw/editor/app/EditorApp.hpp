@@ -4,7 +4,10 @@
 #include <vector>
 #include <ftxui/component/component.hpp>
 #include <ftxui/dom/elements.hpp>
+#include <ftxui/screen/box.hpp>
 #include "gw/Reflection.hpp"
+#include "gw/RendererLoader.hpp"
+#include "gw/Transform.hpp"
 #include "gw/World.hpp"
 #include "gw/editor/panels/ConsolePanel.hpp"
 #include "gw/editor/panels/EntityListPanel.hpp"
@@ -18,7 +21,8 @@ class EditorApp {
 public:
     EditorApp(World& world, const ReflectionRegistry& registry,
               std::vector<KnownType> knownTypes, std::filesystem::path projectRoot,
-              std::vector<KnownType> knownSingletonTypes = {});
+              std::vector<KnownType> knownSingletonTypes = {},
+              std::filesystem::path rendererLibraryPath = {});
 
     void run();
 
@@ -33,6 +37,9 @@ private:
     World& _world;
     EntityListPanel _entityListPanel;
     ViewportPanel _viewportPanel;
+    RendererLoader _rendererLoader;
+    ftxui::Box _viewportBox;
+    gw::RendererRect _viewportRect{};
     PropertiesPanel _propertiesPanel;
     ConsolePanel _consolePanel;
     FolderPanel _folderPanel;

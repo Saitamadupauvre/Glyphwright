@@ -1,4 +1,6 @@
 #include "gw/editor/app/EditorApp.hpp"
+#include <algorithm>
+#include <string_view>
 #include <ftxui/component/screen_interactive.hpp>
 
 namespace gw::editor {
@@ -19,11 +21,16 @@ ftxui::Element decorate(const PanelRow& row) {
 
 EditorApp::EditorApp(World& world, const ReflectionRegistry& registry,
                       std::vector<KnownType> knownTypes, std::filesystem::path projectRoot,
-                      std::vector<KnownType> knownSingletonTypes)
+                      std::vector<KnownType> knownSingletonTypes,
+                      std::filesystem::path rendererLibraryPath)
     : _world(world),
       _entityListPanel(world),
       _propertiesPanel(world, registry, std::move(knownTypes), std::move(knownSingletonTypes)),
-      _folderPanel(std::move(projectRoot)) {}
+      _folderPanel(std::move(projectRoot)) {
+    if (!rendererLibraryPath.empty()) {
+        _rendererLoader.load(rendererLibraryPath, _viewportRect);
+    }
+}
 
 ftxui::Element EditorApp::renderRows(const std::vector<PanelRow>& rows) const {
     ftxui::Elements lines;
@@ -51,9 +58,33 @@ ftxui::Component EditorApp::buildEntityListComponent() {
 
 ftxui::Component EditorApp::buildViewportComponent() {
     return ftxui::Renderer([this] {
-        auto view = _viewportPanel.view();
-        return ftxui::window(ftxui::text(" " + view.title + " ") | ftxui::bold,
-                             ftxui::filler()) | ftxui::flex;
+        const RendererRect rect{0, 0, static_cast<uint32_t>(std::max(0, _viewportBox.x_max - _viewportBox.x_min + 1)),
+                                static_cast<uint32_t>(std::max(0, _viewportBox.y_max - _viewportBox.y_min + 1))};
+        if (rect.width != _viewportRect.width || rect.height != _viewportRect.height) {
+            _viewportRect = rect;
+            _rendererLoader.setRect(rect);
+        }
+
+        if (rect.width > 0 && rect.height > 0) {
+            std::vector<DrawCommand> commands;
+            _world.each<Transform>([&](Entity, Transform& transform) {
+                const float cellX = transform.x + static_cast<float>(rect.width) / 2.0f;
+                const float cellY = transform.y + static_cast<float>(rect.height) / 2.0f;
+                commands.push_back(DrawCommand{DrawCommandKind::FilledRect, cellX, cellY,
+                                               transform.scale_x, transform.scale_y,
+                                               200, 200, 200, 255});
+            });
+            _rendererLoader.beginFrame();
+            _rendererLoader.drawBatch(commands.data(), commands.size());
+            _rendererLoader.endFrame();
+        }
+
+        const char* frameText = _rendererLoader.frameText();
+        return ftxui::window(
+                   ftxui::text(" Game ") | ftxui::bold,
+                   _viewportPanel.render(frameText ? frameText : std::string_view{}) | ftxui::flex |
+                       ftxui::reflect(_viewportBox)) |
+               ftxui::flex;
     });
 }
 

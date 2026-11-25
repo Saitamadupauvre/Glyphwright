@@ -22,6 +22,7 @@
         static_cast<Type*>(self)->drawBatch(cmds, count); \
     } \
     void gw_renderer_endframe_##Type(void* self) { static_cast<Type*>(self)->endFrame(); } \
+    const char* gw_renderer_getframetext_##Type(void* self) { return static_cast<Type*>(self)->frameText(); } \
     ::gw::StateBuffer gw_renderer_serialize_##Type(void* self) { \
         auto bytes = static_cast<Type*>(self)->serializeState(); \
         if (bytes.empty()) return ::gw::StateBuffer{nullptr, 0}; \
@@ -47,6 +48,7 @@
             &gw_renderer_beginframe_##Type, \
             &gw_renderer_drawbatch_##Type, \
             &gw_renderer_endframe_##Type, \
+            &gw_renderer_getframetext_##Type, \
             gw_renderer_supports_state_##Type ? &gw_renderer_serialize_##Type : nullptr, \
             gw_renderer_supports_state_##Type ? &gw_renderer_freestate_##Type : nullptr, \
             gw_renderer_supports_state_##Type ? &gw_renderer_deserialize_##Type : nullptr, \
