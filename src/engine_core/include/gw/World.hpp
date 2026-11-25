@@ -4,8 +4,8 @@
 #include <cstring>
 #include <tuple>
 #include <typeindex>
+#include <stdexcept>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 #include "gw/ComponentPool.hpp"
 #include "gw/ComponentView.hpp"
@@ -17,9 +17,12 @@ class World {
 public:
     Entity createEntity();
     void destroyEntity(Entity e);
+    bool isAlive(Entity e) const;
+    size_t aliveCount() const { return _aliveCount; }
 
     template <typename T>
     T& addComponent(Entity e, T value) {
+        if (!isAlive(e)) throw std::invalid_argument("addComponent on a dead or invalid entity");
         ComponentPool& pool = poolFor<T>();
         void* slot = pool.emplace(e);
         std::memcpy(slot, &value, sizeof(T));
@@ -73,11 +76,9 @@ public:
 
     std::vector<Entity> allEntities() const {
         std::vector<Entity> result;
-        std::unordered_set<uint32_t> seen;
-        for (const auto& [type, pool] : _pools) {
-            for (Entity e : pool.entities()) {
-                if (seen.insert(e.id).second) result.push_back(e);
-            }
+        result.reserve(_aliveCount);
+        for (uint32_t id = 1; id < _alive.size(); ++id) {
+            if (_alive[id]) result.push_back(Entity{id, _generations[id]});
         }
         return result;
     }
@@ -141,6 +142,7 @@ public:
     }
 
     void* addComponentRaw(Entity e, std::type_index type, size_t size, size_t align) {
+        if (!isAlive(e)) return nullptr;
         auto it = _pools.find(type);
         if (it == _pools.end()) {
             it = _pools.emplace(type, ComponentPool(size, align)).first;
@@ -185,6 +187,10 @@ private:
     static constexpr Entity kSingletonSlot{0, 0};
 
     uint32_t _nextEntityId = 1;
+    size_t _aliveCount = 0;
+    std::vector<uint32_t> _generations{0};
+    std::vector<uint8_t> _alive{0};
+    std::vector<uint32_t> _freeIds;
     std::unordered_map<std::type_index, ComponentPool> _pools;
     std::unordered_map<std::type_index, ComponentPool> _singletonPools;
 };
