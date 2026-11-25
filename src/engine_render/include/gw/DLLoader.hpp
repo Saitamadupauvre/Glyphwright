@@ -1,5 +1,15 @@
 #pragma once
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#else
 #include <dlfcn.h>
+#endif
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -41,14 +51,14 @@ public:
             _lastError = DLLoadError::FileNotFound;
             return false;
         }
-        _handle = ::dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+        _handle = loadLibrary(path);
         if (!_handle) {
             _lastError = DLLoadError::OpenFailed;
             return false;
         }
-        void* sym = ::dlsym(_handle, std::string(entryPointSymbol).c_str());
+        void* sym = findSymbol(_handle, std::string(entryPointSymbol));
         if (!sym) {
-            ::dlclose(_handle);
+            unloadLibrary(_handle);
             _handle = nullptr;
             _lastError = DLLoadError::EntryPointNotFound;
             return false;
@@ -61,7 +71,7 @@ public:
 
     void close() {
         if (_handle) {
-            ::dlclose(_handle);
+            unloadLibrary(_handle);
             _handle = nullptr;
         }
         _entryPoint = nullptr;
@@ -76,11 +86,35 @@ public:
     template <typename SymbolFn>
     SymbolFn symbol(std::string_view name) const {
         if (!_handle) return nullptr;
-        void* sym = ::dlsym(_handle, std::string(name).c_str());
+        void* sym = findSymbol(_handle, std::string(name));
         return sym ? reinterpret_cast<SymbolFn>(sym) : nullptr;
     }
 
 private:
+    static void* loadLibrary(const std::filesystem::path& path) {
+#ifdef _WIN32
+        return reinterpret_cast<void*>(::LoadLibraryW(path.c_str()));
+#else
+        return ::dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+#endif
+    }
+
+    static void* findSymbol(void* handle, const std::string& name) {
+#ifdef _WIN32
+        return reinterpret_cast<void*>(::GetProcAddress(reinterpret_cast<HMODULE>(handle), name.c_str()));
+#else
+        return ::dlsym(handle, name.c_str());
+#endif
+    }
+
+    static void unloadLibrary(void* handle) {
+#ifdef _WIN32
+        ::FreeLibrary(reinterpret_cast<HMODULE>(handle));
+#else
+        ::dlclose(handle);
+#endif
+    }
+
     void* _handle = nullptr;
     EntryPointFn _entryPoint = nullptr;
     std::filesystem::path _path;
